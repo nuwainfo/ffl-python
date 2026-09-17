@@ -1,8 +1,13 @@
 # ffl-python
 
-Python binding for FastFileLink. The package bundles the portable `ffl.com` APE and
-runs it behind a Python API; callers do not need to locate or install a separate FFL
-binary.
+`ffl-python` is the Python binding for the [FastFileLink](https://github.com/nuwainfo/ffl)
+CLI (FFL), which turns a file, folder, or stream into a browser-ready HTTPS link so the
+recipient can download it without installing anything. It prefers a direct QUIC/WebRTC P2P
+connection and falls back to a relayed/tunneled HTTPS link, with optional end-to-end
+encryption. See the FFL repository for the full protocol and CLI details.
+
+The package bundles the portable `ffl.com` APE and runs it behind a Python API; callers
+do not need to locate or install a separate FFL binary.
 
 ## Installation
 
@@ -136,3 +141,38 @@ result = ffl.raw(["download", "--help"])
 
 `raw()` is the escape hatch for new FFL options or commands that the semantic API has
 not adopted yet.
+
+## Compared to magic-wormhole
+
+[magic-wormhole](https://github.com/magic-wormhole/magic-wormhole) is the other Python
+tool commonly reached for to move a file between two machines. Both are ad hoc,
+non-account-based transfers you can drive from Python, but they differ in shape:
+
+- **Binding vs. native library.** `ffl-python` is a subprocess wrapper around the
+  separate `ffl.com` CLI binary -- WebRTC/QUIC, NAT traversal, and relay/tunnel fallback
+  all happen in that external process. `wormhole` is a native, in-process Python package
+  (Twisted-based); no external binary is involved. In practice, though, wormhole's own
+  *file*-transfer path is also driven through its CLI machinery rather than a stable
+  public library call -- `wormhole.create()` covers generic message exchange, not file
+  transfer directly.
+- **Recipient experience.** An FFL share is an HTTPS link: the recipient opens it in a
+  browser and downloads, no install required. A wormhole transfer is a short code
+  (e.g. `7-crossbow-clockwork`) exchanged out-of-band; the recipient needs the
+  `wormhole` CLI installed to redeem it.
+- **Transport.** FFL tries a direct WebRTC/QUIC P2P connection first, falls back to a
+  plain P2P TCP connection, and falls back again to a relayed/tunneled HTTPS link if no
+  P2P path is reachable at all. wormhole's own transit protocol does direct TCP with a
+  relay fallback, with the connection authenticated by a SPAKE2 PAKE key derived from the
+  code.
+- **Security default.** wormhole is end-to-end encrypted on every transfer by
+  construction of the code exchange. FFL's end-to-end encryption is opt-in (`--e2ee`);
+  without it, data in transit is only as protected as the HTTPS connection to FFL's
+  relay/tunnel infrastructure.
+- **Feature surface.** FFL adds application-layer conveniences wormhole doesn't have: a
+  secondary pickup-code/public-key recipient check layered on top of the link,
+  receipt-confirmation emails, a pluggable choice of tunnel backend when P2P isn't
+  reachable (built-in `default`, plus Cloudflare, ngrok, Localtunnel, Loophole, Dev
+  Tunnel, Bore, or a self-hosted sish tunnel via `--preferred-tunnel`, with custom
+  tunnels configurable in `~/.fastfilelink/tunnels.json`), and general SOCKS5/HTTP
+  proxy configuration (wormhole only knows how to route through Tor, via `--tor`).
+  

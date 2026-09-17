@@ -34,6 +34,8 @@ class TransferMode(IntEnum):
     WEBRTC_P2P = 2
     HTTP_FALLBACK = 3
     HTTP_DIRECT = 4
+    P2P_TCP = 5
+    P2P_QUIC = 6
 
 
 class ShareSession:

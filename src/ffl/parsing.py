@@ -42,12 +42,12 @@ class FFLResultParser:
 
     @classmethod
     def _detect_transfer_mode(cls, output: str) -> TransferMode:
-        if (
-            'P2P direct' in output
-            or 'P2P TCP' in output
-            or 'WebRTC P2P' in output
-        ):
+        if 'P2P direct' in output or 'WebRTC P2P' in output:
             return TransferMode.WEBRTC_P2P
+        if 'P2P UDP/QUIC' in output:
+            return TransferMode.P2P_QUIC
+        if 'P2P TCP' in output:
+            return TransferMode.P2P_TCP
         if 'HTTP fallback' in output:
             return TransferMode.HTTP_FALLBACK
         if (

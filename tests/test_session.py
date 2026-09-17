@@ -286,4 +286,30 @@ def test_download_parser_recognizes_p2p_tcp_output(tmp_path: Path):
 
     result = FFLResultParser.parse_download(process, None, tmp_path)
 
+    assert result.transfer_mode is ffl.TransferMode.P2P_TCP
+
+
+def test_download_parser_recognizes_p2p_quic_output(tmp_path: Path):
+    process = ffl.APEProcessResult(
+        ('download', 'https://example.test/file'),
+        0,
+        'Using P2P UDP/QUIC download\nDownloaded: file.bin',
+        '',
+    )
+
+    result = FFLResultParser.parse_download(process, None, tmp_path)
+
+    assert result.transfer_mode is ffl.TransferMode.P2P_QUIC
+
+
+def test_download_parser_recognizes_webrtc_p2p_output(tmp_path: Path):
+    process = ffl.APEProcessResult(
+        ('download', 'https://example.test/file'),
+        0,
+        'Using WebRTC P2P download\nDownloaded: file.bin',
+        '',
+    )
+
+    result = FFLResultParser.parse_download(process, None, tmp_path)
+
     assert result.transfer_mode is ffl.TransferMode.WEBRTC_P2P
