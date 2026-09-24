@@ -6,8 +6,9 @@ recipient can download it without installing anything. It prefers a direct QUIC/
 connection and falls back to a relayed/tunneled HTTPS link, with optional end-to-end
 encryption. See the FFL repository for the full protocol and CLI details.
 
-The package bundles the portable `ffl.com` APE and runs it behind a Python API; callers
-do not need to locate or install a separate FFL binary.
+The package bundles the portable `ffl.com` APE and runs it behind a Python API, 
+powered by [APEBind](https://github.com/nuwainfo/apebind), 
+so callers do not need to locate or install a separate FFL 
 
 ## Installation
 
