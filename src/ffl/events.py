@@ -31,11 +31,17 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 
+# FFL posts one integrated /transfer/* event for every HTTP, WebRTC, and
+# direct P2P transfer. Semantic listeners bind to those names, plus
+# /share/available. Transport-specific events stay on the raw channel, so one
+# transfer notifies each semantic listener once.
+_HOOK_OK_BODY = b'{}'
 _SEMANTIC_EVENT_NAMES = {
-    '/hook/server/endpoints/register': 'ready',
-    '/hook/transfer/progress': 'progress',
-    '/hook/transfer/transport': 'transport',
-    '/hook/transfer/complete': 'completed',
+    '/share/available': 'ready',
+    '/transfer/create': 'started',
+    '/transfer/progress': 'progress',
+    '/transfer/complete': 'completed',
+    '/transfer/fail': 'failed',
 }
 
 
@@ -176,12 +182,15 @@ class FFLHookEventChannel:
                 try:
                     channel._publish(body)
                     published = True
-                    self.send_response(204)
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Content-Length', str(len(_HOOK_OK_BODY)))
+                    self.end_headers()
+                    self.wfile.write(_HOOK_OK_BODY)
                 except Exception as error:
                     channel._record_error(error)
                     self.send_response(500)
-                    
-                self.end_headers()
+                    self.end_headers()
 
                 if published and channel._forward_url is not None:
                     channel._forward_async(body)

@@ -11,7 +11,7 @@ import pytest
 from ffl.events import FFLHookEventChannel
 
 
-def _event_body(index: int, name: str = '/hook/transfer/progress') -> bytes:
+def _event_body(index: int, name: str = '/transfer/progress') -> bytes:
     return json.dumps({'event': name, 'data': {'index': index}}).encode('utf-8')
 
 
@@ -20,7 +20,7 @@ def test_hook_history_is_bounded_and_exposes_semantic_event_names():
     try:
         channel._publish(_event_body(1))
         channel._publish(_event_body(2))
-        channel._publish(_event_body(3, '/hook/transfer/complete'))
+        channel._publish(_event_body(3, '/transfer/complete'))
 
         assert [event.data['index'] for event in channel.history] == [2, 3]
         assert channel.history[-1].semantic_name == 'completed'
@@ -32,6 +32,47 @@ def test_hook_history_is_bounded_and_exposes_semantic_event_names():
         )
         assert replayed_event.wait(timeout=1)
         assert replayed == [channel.history[-1]]
+    finally:
+        channel.close()
+
+
+def test_integrated_transfer_events_map_once():
+    channel = FFLHookEventChannel()
+    try:
+        names = (
+            '/download/complete',
+            '/webrtc/transfer/complete',
+            '/p2p/transfer/complete',
+            '/hook/transfer/complete',
+            '/transfer/complete',
+            '/share/available',
+            '/transfer/create',
+            '/transfer/progress',
+            '/download/progress',
+            '/transfer/fail',
+        )
+        for index, name in enumerate(names, start=1):
+            channel._publish(_event_body(index, name))
+
+        def named(semantic):
+            return [
+                event.name for event in channel.history if event.semantic_name == semantic
+            ]
+
+        assert named('completed') == ['/transfer/complete']
+        assert named('progress') == ['/transfer/progress']
+        assert named('ready') == ['/share/available']
+        assert named('started') == ['/transfer/create']
+        assert named('failed') == ['/transfer/fail']
+
+        replayed = []
+        replayed_event = threading.Event()
+        channel.on_semantic(
+            'completed',
+            lambda event: (replayed.append(event.name), replayed_event.set()),
+        )
+        assert replayed_event.wait(timeout=1)
+        assert replayed == ['/transfer/complete']
     finally:
         channel.close()
 
@@ -69,8 +110,12 @@ def test_hook_response_does_not_wait_for_forwarded_webhook():
         def do_POST(self) -> None:
             forwarded.set()
             release_forward.wait(timeout=5)
-            self.send_response(204)
+            body = b'{}'
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
             self.end_headers()
+            self.wfile.write(body)
 
         def log_message(self, format_string: str, *args) -> None:
             del format_string, args
@@ -84,7 +129,8 @@ def test_hook_response_does_not_wait_for_forwarded_webhook():
         started = time.monotonic()
         request = Request(channel.url, data=_event_body(1), method='POST')
         with urlopen(request, timeout=1) as response:
-            assert response.status == 204
+            assert response.status == 200
+            assert response.read() == b'{}'
 
         assert time.monotonic() - started < 0.5
         assert forwarded.wait(timeout=1)
@@ -114,7 +160,7 @@ def test_hook_response_does_not_wait_for_a_local_listener():
     release_listener = threading.Event()
     channel = FFLHookEventChannel()
     channel.on(
-        '/hook/transfer/progress',
+        '/transfer/progress',
         lambda event: (listener_started.set(), release_listener.wait(timeout=5)),
     )
 
@@ -122,7 +168,8 @@ def test_hook_response_does_not_wait_for_a_local_listener():
         started = time.monotonic()
         request = Request(channel.url, data=_event_body(1), method='POST')
         with urlopen(request, timeout=1) as response:
-            assert response.status == 204
+            assert response.status == 200
+            assert response.read() == b'{}'
 
         assert time.monotonic() - started < 0.5
         assert listener_started.wait(timeout=1)

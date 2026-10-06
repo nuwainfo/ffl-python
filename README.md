@@ -71,6 +71,25 @@ with open("backup.tar", "rb") as source:
         print(session.link)
 ```
 
+### Events
+
+`session.on(name, listener)` follows FFL's integrated events:
+
+| Semantic name | FFL event |
+| --- | --- |
+| `ready` | `/share/available` |
+| `started` | `/transfer/create` |
+| `progress` | `/transfer/progress` |
+| `completed` | `/transfer/complete` |
+| `failed` | `/transfer/fail` |
+
+HTTP, WebRTC, and direct P2P also emit their own events, such as
+`/download/complete`. Those stay on `session.on_raw()`. `completed` follows
+`/transfer/complete`, so one transfer notifies that listener once. Each accepted
+hook POST is answered with HTTP 200 and `{}`.
+
+The bundled `ffl.com` emits these names.
+
 ## Download
 
 ```python
